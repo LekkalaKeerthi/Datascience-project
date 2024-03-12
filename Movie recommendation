@@ -1,0 +1,55 @@
+# Import necessary libraries
+import pandas as pd
+from surprise import Dataset, Reader, SVD
+from surprise.model_selection import train_test_split
+from flask import Flask, request, jsonify
+
+# Step 1: Data Collection
+# Load movie ratings data from a CSV file or any other source
+ratings_data = pd.read_csv("ratings.csv")  # Adjust the filename and path as needed
+
+# Step 2: Data Preprocessing
+# Clean the data, handle missing values, and perform exploratory data analysis if needed
+
+# Step 3: User-Item Matrix
+# Convert ratings data into a user-item matrix
+reader = Reader(rating_scale=(1, 5))
+data = Dataset.load_from_df(ratings_data[['userId', 'movieId', 'rating']], reader)
+trainset = data.build_full_trainset()
+
+# Step 4: Collaborative Filtering
+# Train the collaborative filtering model
+model = SVD()
+model.fit(trainset)
+
+# Step 5: Model Evaluation
+# Split the dataset into training and testing sets
+trainset, testset = train_test_split(data, test_size=0.2)
+model.fit(trainset)
+predictions = model.test(testset)
+# Evaluate the model using appropriate metrics (RMSE, MAE, etc.)
+
+# Step 6: Top-N Recommendations
+# Generate top-N movie recommendations for a specific user
+def get_top_n_recommendations(user_id, n=10):
+    user_ratings = ratings_data[ratings_data['userId'] == user_id]
+    movies_to_exclude = user_ratings['movieId'].tolist()
+    movies_to_recommend = ratings_data[~ratings_data['movieId'].isin(movies_to_exclude)]['movieId'].unique()
+    recommendations = []
+    for movie_id in movies_to_recommend:
+        prediction = model.predict(user_id, movie_id)
+        recommendations.append((movie_id, prediction.est))
+    recommendations.sort(key=lambda x: x[1], reverse=True)
+    return recommendations[:n]
+
+# Step 7: Interactive Interface using Flask
+app = Flask(_name_)
+
+@app.route('/recommend', methods=['GET'])
+def recommend_movies():
+    user_id = int(request.args.get('user_id'))
+    top_n_recommendations = get_top_n_recommendations(user_id)
+    return jsonify(top_n_recommendations)
+
+if _name_ == '_main_':
+    app.run(debug=True)
